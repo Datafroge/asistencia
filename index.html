@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <title>Asistencia</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, sans-serif;
+      background: #f5f5f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    h1 { font-size: 22px; color: #1a1a1a; margin-bottom: 6px; }
+    .subtitle { font-size: 13px; color: #888; margin-bottom: 28px; }
+
+    /* PIN */
+    .pin-section { text-align: center; }
+    .pin-label { font-size: 14px; color: #555; margin-bottom: 14px; }
+    .pin-display {
+      display: flex; gap: 10px; justify-content: center; margin-bottom: 20px;
+    }
+    .pin-dot {
+      width: 48px; height: 56px;
+      border: 2px solid #ddd; border-radius: 10px;
+      font-size: 24px; font-weight: 700; color: #1a1a1a;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.2s;
+    }
+    .pin-dot.active { border-color: #6C63FF; }
+    .pin-dot.filled { border-color: #6C63FF; background: #f0effe; }
+    .numpad {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 10px; max-width: 260px; margin: 0 auto;
+    }
+    .num-btn {
+      height: 56px; border: none; background: #f5f5f5;
+      border-radius: 10px; font-size: 20px; font-weight: 500;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .num-btn:active { background: #e0dfff; }
+    .num-btn.del { font-size: 16px; color: #888; }
+    .num-btn.empty { background: transparent; pointer-events: none; }
+    .pin-error { color: #e53e3e; font-size: 13px; margin-top: 12px; min-height: 18px; }
+
+    /* Perfil (oculto hasta validar PIN) */
+    .perfil-section { display: none; }
+    .avatar {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: linear-gradient(135deg, #6C63FF, #48c6ef);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; color: white; margin: 0 auto 14px;
+    }
+    .nombre-txt { font-size: 20px; font-weight: 600; text-align: center; color: #1a1a1a; }
+    .sucursal-txt { font-size: 13px; color: #888; text-align: center; margin-bottom: 24px; }
+    .tipo-label { font-size: 13px; color: #555; font-weight: 500; margin-bottom: 10px; }
+    .tipo-badge {
+      display: inline-block; padding: 8px 16px;
+      border-radius: 20px; font-size: 14px; font-weight: 600;
+      margin-bottom: 24px;
+    }
+    .badge-entrada     { background: #e6f9f0; color: #1a7a45; }
+    .badge-salida_comida { background: #fff8e1; color: #b45309; }
+    .badge-regreso_comida { background: #e0f0ff; color: #1a56a0; }
+    .badge-salida      { background: #fde8e8; color: #c53030; }
+
+    .ubicacion-info {
+      background: #f8f8f8; border-radius: 10px; padding: 12px 14px;
+      font-size: 12px; color: #666; margin-bottom: 20px; line-height: 1.8;
+    }
+    .btn-confirmar {
+      width: 100%; padding: 16px; border: none; border-radius: 12px;
+      background: #6C63FF; color: white; font-size: 17px; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-confirmar:active { background: #5a52d5; }
+    .btn-confirmar:disabled { background: #bbb; cursor: default; }
+    .btn-cambiar {
+      width: 100%; padding: 10px; border: none; background: none;
+      color: #888; font-size: 13px; cursor: pointer; margin-top: 10px;
+    }
+
+    /* Confirmación final */
+    .success-section { display: none; text-align: center; }
+    .success-icon { font-size: 56px; margin-bottom: 16px; }
+    .success-txt { font-size: 18px; font-weight: 600; color: #1a1a1a; }
+    .success-sub { font-size: 14px; color: #888; margin-top: 8px; }
+  </style>
+</head>
+<body>
+<div class="card">
+
+  <h1>Control de Asistencia</h1>
+  <p class="subtitle" id="fecha-actual"></p>
+
+  <!-- PASO 1: Ingresar PIN -->
+  <div class="pin-section" id="pin-section">
+    <p class="pin-label">Ingresa tu PIN de 4 dígitos</p>
+    <div class="pin-display">
+      <div class="pin-dot" id="d0"></div>
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
+    </div>
+    <div class="numpad">
+      <button class="num-btn" onclick="presionar('1')">1</button>
+      <button class="num-btn" onclick="presionar('2')">2</button>
+      <button class="num-btn" onclick="presionar('3')">3</button>
+      <button class="num-btn" onclick="presionar('4')">4</button>
+      <button class="num-btn" onclick="presionar('5')">5</button>
+      <button class="num-btn" onclick="presionar('6')">6</button>
+      <button class="num-btn" onclick="presionar('7')">7</button>
+      <button class="num-btn" onclick="presionar('8')">8</button>
+      <button class="num-btn" onclick="presionar('9')">9</button>
+      <button class="num-btn empty"></button>
+      <button class="num-btn" onclick="presionar('0')">0</button>
+      <button class="num-btn del" onclick="borrar()">⌫</button>
+    </div>
+    <p class="pin-error" id="pin-error"></p>
+  </div>
+
+  <!-- PASO 2: Confirmar registro -->
+  <div class="perfil-section" id="perfil-section">
+    <div class="avatar" id="avatar-iniciales"></div>
+    <p class="nombre-txt" id="nombre-txt"></p>
+    <p class="sucursal-txt" id="puesto-txt"></p>
+    <p class="tipo-label">Tipo de registro detectado:</p>
+    <span class="tipo-badge" id="tipo-badge"></span>
+    <div class="ubicacion-info" id="ubicacion-info">📍 Obteniendo ubicación GPS...</div>
+    <button class="btn-confirmar" id="btn-confirmar" onclick="confirmarRegistro()" disabled>
+      Confirmar registro
+    </button>
+    <button class="btn-cambiar" onclick="resetear()">← Cambiar usuario</button>
+  </div>
+
+  <!-- PASO 3: Éxito -->
+  <div class="success-section" id="success-section">
+    <div class="success-icon">✅</div>
+    <p class="success-txt" id="success-txt"></p>
+    <p class="success-sub" id="success-sub"></p>
+  </div>
+
+</div>
+
+<script>
+  // ─── CONFIGURACIÓN ───────────────────────────────────────────────
+  const WEBHOOK_URL = "https://TU-N8N.com/webhook/asistencia";
+  const WEBHOOK_PIN_URL = "https://TU-N8N.com/webhook/validar-pin";
+
+  // ─── ESTADO ──────────────────────────────────────────────────────
+  let pinActual = "";
+  let datosUbicacion = null;
+  let datosEmpleado = null;
+
+  // ─── FECHA ───────────────────────────────────────────────────────
+  const ahora = new Date();
+  document.getElementById('fecha-actual').textContent =
+    ahora.toLocaleDateString('es-MX', { weekday:'long', day:'numeric', month:'long' });
+
+  // ─── TECLADO PIN ─────────────────────────────────────────────────
+  function presionar(num) {
+    if (pinActual.length >= 4) return;
+    pinActual += num;
+    actualizarDots();
+    if (pinActual.length === 4) validarPIN();
+  }
+
+  function borrar() {
+    pinActual = pinActual.slice(0, -1);
+    document.getElementById('pin-error').textContent = "";
+    actualizarDots();
+  }
+
+  function actualizarDots() {
+    for (let i = 0; i < 4; i++) {
+      const d = document.getElementById('d' + i);
+      d.textContent = pinActual[i] ? "•" : "";
+      d.className = 'pin-dot' +
+        (i < pinActual.length ? ' filled' : '') +
+        (i === pinActual.length ? ' active' : '');
+    }
+  }
+
+  // ─── VALIDAR PIN CONTRA N8N ──────────────────────────────────────
+  async function validarPIN() {
+    document.getElementById('pin-error').textContent = "Verificando...";
+    try {
+      const res = await fetch(WEBHOOK_PIN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: pinActual })
+      });
+      const data = await res.json();
+      if (data.valido) {
+        datosEmpleado = data;
+        mostrarPerfil(data);
+      } else {
+        document.getElementById('pin-error').textContent = "PIN incorrecto. Intenta de nuevo.";
+        pinActual = "";
+        actualizarDots();
+      }
+    } catch(e) {
+      document.getElementById('pin-error').textContent = "Error de conexión.";
+      pinActual = "";
+      actualizarDots();
+    }
+  }
+
+  // ─── MOSTRAR PERFIL ───────────────────────────────────────────────
+  function mostrarPerfil(emp) {
+    document.getElementById('pin-section').style.display = 'none';
+    document.getElementById('perfil-section').style.display = 'block';
+
+    // Iniciales avatar
+    const iniciales = emp.nombre.split(' ').map(p=>p[0]).slice(0,2).join('');
+    document.getElementById('avatar-iniciales').textContent = iniciales;
+    document.getElementById('nombre-txt').textContent = emp.nombre;
+    document.getElementById('puesto-txt').textContent = emp.puesto + ' · ' + emp.sucursal_asignada;
+
+    // Tipo de registro automático por horario
+    const tipo = detectarTipoRegistro(emp.ultimo_registro);
+    const badge = document.getElementById('tipo-badge');
+    badge.textContent = tipoTexto(tipo);
+    badge.className = 'tipo-badge badge-' + tipo;
+    badge.dataset.tipo = tipo;
+
+    // Obtener GPS
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        datosUbicacion = { lat: pos.coords.latitude, lon: pos.coords.longitude, precision: pos.coords.accuracy };
+        document.getElementById('ubicacion-info').innerHTML =
+          `📍 Lat: ${pos.coords.latitude.toFixed(5)}, Lon: ${pos.coords.longitude.toFixed(5)}<br>
+           🎯 Precisión: ±${Math.round(pos.coords.accuracy)} metros`;
+        document.getElementById('btn-confirmar').disabled = false;
+      },
+      () => {
+        document.getElementById('ubicacion-info').textContent = "⚠️ No se pudo obtener GPS. Activa la ubicación.";
+      },
+      { enableHighAccuracy: true }
+    );
+  }
+
+  // ─── LÓGICA DE TIPO DE REGISTRO ───────────────────────────────────
+  function detectarTipoRegistro(ultimoRegistro) {
+    const orden = ['entrada','salida_comida','regreso_comida','salida'];
+    if (!ultimoRegistro) return 'entrada';
+    const idx = orden.indexOf(ultimoRegistro);
+    return idx >= 0 && idx < 3 ? orden[idx + 1] : 'entrada';
+  }
+
+  function tipoTexto(tipo) {
+    return {
+      entrada: '🟢 Entrada',
+      salida_comida: '🟡 Salida a comer',
+      regreso_comida: '🔵 Regreso de comer',
+      salida: '🔴 Salida del día'
+    }[tipo] || tipo;
+  }
+
+  // ─── CONFIRMAR REGISTRO ───────────────────────────────────────────
+  async function confirmarRegistro() {
+    const btn = document.getElementById('btn-confirmar');
+    btn.disabled = true;
+    btn.textContent = "Enviando...";
+
+    const tipo = document.getElementById('tipo-badge').dataset.tipo;
+
+    try {
+      const res = await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: datosEmpleado.nombre,
+          empleado_id: datosEmpleado.id,
+          tipo: tipo,
+          lat: datosUbicacion.lat,
+          lon: datosUbicacion.lon,
+          precision_gps: datosUbicacion.precision,
+          timestamp: new Date().toISOString()
+        })
+      });
+      const data = await res.json();
+      mostrarExito(data.mensaje || `${tipoTexto(tipo)} registrado correctamente`, data.hora || "");
+    } catch(e) {
+      btn.disabled = false;
+      btn.textContent = "Confirmar registro";
+      alert("Error al enviar. Intenta de nuevo.");
+    }
+  }
+
+  // ─── ÉXITO ────────────────────────────────────────────────────────
+  function mostrarExito(msg, hora) {
+    document.getElementById('perfil-section').style.display = 'none';
+    document.getElementById('success-section').style.display = 'block';
+    document.getElementById('success-txt').textContent = msg;
+    document.getElementById('success-sub').textContent = hora ? `Registrado a las ${hora}` : "";
+    // Resetear después de 5 segundos para el siguiente empleado
+    setTimeout(resetear, 5000);
+  }
+
+  function resetear() {
+    pinActual = "";
+    datosUbicacion = null;
+    datosEmpleado = null;
+    actualizarDots();
+    document.getElementById('pin-error').textContent = "";
+    document.getElementById('btn-confirmar').disabled = true;
+    document.getElementById('btn-confirmar').textContent = "Confirmar registro";
+    document.getElementById('pin-section').style.display = 'block';
+    document.getElementById('perfil-section').style.display = 'none';
+    document.getElementById('success-section').style.display = 'none';
+  }
+
+  actualizarDots();
+</script>
+</body>
+</html>
