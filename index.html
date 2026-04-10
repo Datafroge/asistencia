@@ -194,7 +194,8 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pin: pinActual })
       });
-      const data = await res.json();
+      const raw = await res.json();
+      const data = Array.isArray(raw) ? raw[0] : raw;
 
       // Acepta campos en minúscula o con mayúscula inicial (según N8N)
       const valido = data.valido || data.Valido || false;
