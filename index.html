@@ -26,12 +26,9 @@
     h1 { font-size: 22px; color: #1a1a1a; margin-bottom: 6px; }
     .subtitle { font-size: 13px; color: #888; margin-bottom: 28px; }
 
-    /* PIN */
     .pin-section { text-align: center; }
     .pin-label { font-size: 14px; color: #555; margin-bottom: 14px; }
-    .pin-display {
-      display: flex; gap: 10px; justify-content: center; margin-bottom: 20px;
-    }
+    .pin-display { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
     .pin-dot {
       width: 48px; height: 56px;
       border: 2px solid #ddd; border-radius: 10px;
@@ -55,7 +52,6 @@
     .num-btn.empty { background: transparent; pointer-events: none; }
     .pin-error { color: #e53e3e; font-size: 13px; margin-top: 12px; min-height: 18px; }
 
-    /* Perfil (oculto hasta validar PIN) */
     .perfil-section { display: none; }
     .avatar {
       width: 64px; height: 64px; border-radius: 50%;
@@ -71,11 +67,10 @@
       border-radius: 20px; font-size: 14px; font-weight: 600;
       margin-bottom: 24px;
     }
-    .badge-entrada     { background: #e6f9f0; color: #1a7a45; }
+    .badge-entrada       { background: #e6f9f0; color: #1a7a45; }
     .badge-salida_comida { background: #fff8e1; color: #b45309; }
-    .badge-regreso_comida { background: #e0f0ff; color: #1a56a0; }
-    .badge-salida      { background: #fde8e8; color: #c53030; }
-
+    .badge-regreso_comida{ background: #e0f0ff; color: #1a56a0; }
+    .badge-salida        { background: #fde8e8; color: #c53030; }
     .ubicacion-info {
       background: #f8f8f8; border-radius: 10px; padding: 12px 14px;
       font-size: 12px; color: #666; margin-bottom: 20px; line-height: 1.8;
@@ -91,8 +86,6 @@
       width: 100%; padding: 10px; border: none; background: none;
       color: #888; font-size: 13px; cursor: pointer; margin-top: 10px;
     }
-
-    /* Confirmación final */
     .success-section { display: none; text-align: center; }
     .success-icon { font-size: 56px; margin-bottom: 16px; }
     .success-txt { font-size: 18px; font-weight: 600; color: #1a1a1a; }
@@ -105,7 +98,7 @@
   <h1>Control de Asistencia</h1>
   <p class="subtitle" id="fecha-actual"></p>
 
-  <!-- PASO 1: Ingresar PIN -->
+  <!-- PASO 1: PIN -->
   <div class="pin-section" id="pin-section">
     <p class="pin-label">Ingresa tu PIN de 4 dígitos</p>
     <div class="pin-display">
@@ -131,7 +124,7 @@
     <p class="pin-error" id="pin-error"></p>
   </div>
 
-  <!-- PASO 2: Confirmar registro -->
+  <!-- PASO 2: Perfil -->
   <div class="perfil-section" id="perfil-section">
     <div class="avatar" id="avatar-iniciales"></div>
     <p class="nombre-txt" id="nombre-txt"></p>
@@ -155,8 +148,8 @@
 </div>
 
 <script>
-  // ─── CONFIGURACIÓN ───────────────────────────────────────────────
-  const WEBHOOK_URL = "https://n8n-n8n.78zv0v.easypanel.host/webhook-test/asistencia";
+  // ─── CONFIGURACIÓN ── cambia solo estas 2 URLs ───────────────────
+  const WEBHOOK_URL     = "https://n8n-n8n.78zv0v.easypanel.host/webhook-test/asistencia";
   const WEBHOOK_PIN_URL = "https://n8n-n8n.78zv0v.easypanel.host/webhook-test/Validar-ID";
 
   // ─── ESTADO ──────────────────────────────────────────────────────
@@ -165,9 +158,8 @@
   let datosEmpleado = null;
 
   // ─── FECHA ───────────────────────────────────────────────────────
-  const ahora = new Date();
   document.getElementById('fecha-actual').textContent =
-    ahora.toLocaleDateString('es-MX', { weekday:'long', day:'numeric', month:'long' });
+    new Date().toLocaleDateString('es-MX', { weekday:'long', day:'numeric', month:'long' });
 
   // ─── TECLADO PIN ─────────────────────────────────────────────────
   function presionar(num) {
@@ -193,7 +185,7 @@
     }
   }
 
-  // ─── VALIDAR PIN CONTRA N8N ──────────────────────────────────────
+  // ─── VALIDAR PIN ─────────────────────────────────────────────────
   async function validarPIN() {
     document.getElementById('pin-error').textContent = "Verificando...";
     try {
@@ -203,9 +195,21 @@
         body: JSON.stringify({ pin: pinActual })
       });
       const data = await res.json();
-      if (data.valido) {
-        datosEmpleado = data;
-        mostrarPerfil(data);
+
+      // Acepta campos en minúscula o con mayúscula inicial (según N8N)
+      const valido = data.valido || data.Valido || false;
+
+      if (valido) {
+        // Normaliza todos los campos sin importar mayúsculas/minúsculas
+        datosEmpleado = {
+          valido: true,
+          id:               data.id               || data.ID               || '',
+          nombre:           data.nombre           || data.Nombre           || data['NOMBRE COMPLETO'] || '',
+          puesto:           data.puesto           || data.Puesto           || data.PUESTO            || '',
+          sucursal_asignada:data.sucursal_asignada|| data.Sucursal         || data.SUCURSAL          || '',
+          ultimo_registro:  data.ultimo_registro  || data['Ultimo Registro']|| data['ULTIMO REGISTRO']|| ''
+        };
+        mostrarPerfil(datosEmpleado);
       } else {
         document.getElementById('pin-error').textContent = "PIN incorrecto. Intenta de nuevo.";
         pinActual = "";
@@ -220,58 +224,60 @@
 
   // ─── MOSTRAR PERFIL ───────────────────────────────────────────────
   function mostrarPerfil(emp) {
-    document.getElementById('avatar-iniciales').textContent = 
-  (emp.nombre || '?').split(' ').map(p => p[0]).slice(0,2).join('');
+    document.getElementById('pin-section').style.display = 'none';
+    document.getElementById('perfil-section').style.display = 'block';
 
-document.getElementById('nombre-txt').textContent = 
-  emp.nombre || emp.Nombre || '';
-
-document.getElementById('puesto-txt').textContent = 
-  (emp.puesto || emp.Puesto || '') + ' · ' + (emp.sucursal_asignada || emp.Sucursal || '');
-
-    // Iniciales avatar
-    const iniciales = emp.nombre.split(' ').map(p=>p[0]).slice(0,2).join('');
+    // Avatar con iniciales
+    const iniciales = emp.nombre
+      ? emp.nombre.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()
+      : '?';
     document.getElementById('avatar-iniciales').textContent = iniciales;
     document.getElementById('nombre-txt').textContent = emp.nombre;
-    document.getElementById('puesto-txt').textContent = emp.puesto + ' · ' + emp.sucursal_asignada;
+    document.getElementById('puesto-txt').textContent =
+      emp.puesto + (emp.sucursal_asignada ? ' · ' + emp.sucursal_asignada : '');
 
-    // Tipo de registro automático por horario
+    // Tipo de registro
     const tipo = detectarTipoRegistro(emp.ultimo_registro);
     const badge = document.getElementById('tipo-badge');
     badge.textContent = tipoTexto(tipo);
     badge.className = 'tipo-badge badge-' + tipo;
     badge.dataset.tipo = tipo;
 
-    // Obtener GPS
+    // GPS
     navigator.geolocation.getCurrentPosition(
       pos => {
-        datosUbicacion = { lat: pos.coords.latitude, lon: pos.coords.longitude, precision: pos.coords.accuracy };
+        datosUbicacion = {
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+          precision: pos.coords.accuracy
+        };
         document.getElementById('ubicacion-info').innerHTML =
           `📍 Lat: ${pos.coords.latitude.toFixed(5)}, Lon: ${pos.coords.longitude.toFixed(5)}<br>
            🎯 Precisión: ±${Math.round(pos.coords.accuracy)} metros`;
         document.getElementById('btn-confirmar').disabled = false;
       },
       () => {
-        document.getElementById('ubicacion-info').textContent = "⚠️ No se pudo obtener GPS. Activa la ubicación.";
+        document.getElementById('ubicacion-info').textContent =
+          "⚠️ No se pudo obtener GPS. Activa la ubicación.";
       },
       { enableHighAccuracy: true }
     );
   }
 
-  // ─── LÓGICA DE TIPO DE REGISTRO ───────────────────────────────────
+  // ─── TIPO DE REGISTRO ─────────────────────────────────────────────
   function detectarTipoRegistro(ultimoRegistro) {
-    const orden = ['entrada','salida_comida','regreso_comida','salida'];
+    const orden = ['entrada', 'salida_comida', 'regreso_comida', 'salida'];
     if (!ultimoRegistro) return 'entrada';
     const idx = orden.indexOf(ultimoRegistro);
-    return idx >= 0 && idx < 3 ? orden[idx + 1] : 'entrada';
+    return (idx >= 0 && idx < 3) ? orden[idx + 1] : 'entrada';
   }
 
   function tipoTexto(tipo) {
     return {
-      entrada: '🟢 Entrada',
-      salida_comida: '🟡 Salida a comer',
+      entrada:        '🟢 Entrada',
+      salida_comida:  '🟡 Salida a comer',
       regreso_comida: '🔵 Regreso de comer',
-      salida: '🔴 Salida del día'
+      salida:         '🔴 Salida del día'
     }[tipo] || tipo;
   }
 
@@ -288,13 +294,13 @@ document.getElementById('puesto-txt').textContent =
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          nombre: datosEmpleado.nombre,
-          empleado_id: datosEmpleado.id,
-          tipo: tipo,
-          lat: datosUbicacion.lat,
-          lon: datosUbicacion.lon,
-          precision_gps: datosUbicacion.precision,
-          timestamp: new Date().toISOString()
+          nombre:       datosEmpleado.nombre,
+          empleado_id:  datosEmpleado.id,
+          tipo:         tipo,
+          lat:          datosUbicacion.lat,
+          lon:          datosUbicacion.lon,
+          precision_gps:datosUbicacion.precision,
+          timestamp:    new Date().toISOString()
         })
       });
       const data = await res.json();
@@ -312,10 +318,10 @@ document.getElementById('puesto-txt').textContent =
     document.getElementById('success-section').style.display = 'block';
     document.getElementById('success-txt').textContent = msg;
     document.getElementById('success-sub').textContent = hora ? `Registrado a las ${hora}` : "";
-    // Resetear después de 5 segundos para el siguiente empleado
     setTimeout(resetear, 5000);
   }
 
+  // ─── RESETEAR ─────────────────────────────────────────────────────
   function resetear() {
     pinActual = "";
     datosUbicacion = null;
