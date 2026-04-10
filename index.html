@@ -220,8 +220,14 @@
 
   // ─── MOSTRAR PERFIL ───────────────────────────────────────────────
   function mostrarPerfil(emp) {
-    document.getElementById('pin-section').style.display = 'none';
-    document.getElementById('perfil-section').style.display = 'block';
+    document.getElementById('avatar-iniciales').textContent = 
+  (emp.nombre || '?').split(' ').map(p => p[0]).slice(0,2).join('');
+
+document.getElementById('nombre-txt').textContent = 
+  emp.nombre || emp.Nombre || '';
+
+document.getElementById('puesto-txt').textContent = 
+  (emp.puesto || emp.Puesto || '') + ' · ' + (emp.sucursal_asignada || emp.Sucursal || '');
 
     // Iniciales avatar
     const iniciales = emp.nombre.split(' ').map(p=>p[0]).slice(0,2).join('');
