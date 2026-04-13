@@ -25,7 +25,6 @@
     }
     h1 { font-size: 22px; color: #1a1a1a; margin-bottom: 6px; }
     .subtitle { font-size: 13px; color: #888; margin-bottom: 28px; }
-
     .pin-section { text-align: center; }
     .pin-label { font-size: 14px; color: #555; margin-bottom: 14px; }
     .pin-display { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
@@ -51,7 +50,6 @@
     .num-btn.del { font-size: 16px; color: #888; }
     .num-btn.empty { background: transparent; pointer-events: none; }
     .pin-error { color: #e53e3e; font-size: 13px; margin-top: 12px; min-height: 18px; }
-
     .perfil-section { display: none; }
     .avatar {
       width: 64px; height: 64px; border-radius: 50%;
@@ -98,7 +96,6 @@
   <h1>Control de Asistencia</h1>
   <p class="subtitle" id="fecha-actual"></p>
 
-  <!-- PASO 1: PIN -->
   <div class="pin-section" id="pin-section">
     <p class="pin-label">Ingresa tu PIN de 4 dígitos</p>
     <div class="pin-display">
@@ -124,7 +121,6 @@
     <p class="pin-error" id="pin-error"></p>
   </div>
 
-  <!-- PASO 2: Perfil -->
   <div class="perfil-section" id="perfil-section">
     <div class="avatar" id="avatar-iniciales"></div>
     <p class="nombre-txt" id="nombre-txt"></p>
@@ -138,7 +134,6 @@
     <button class="btn-cambiar" onclick="resetear()">← Cambiar usuario</button>
   </div>
 
-  <!-- PASO 3: Éxito -->
   <div class="success-section" id="success-section">
     <div class="success-icon">✅</div>
     <p class="success-txt" id="success-txt"></p>
@@ -148,31 +143,34 @@
 </div>
 
 <script>
-  // ─── CONFIGURACIÓN ── cambia solo estas 2 URLs ───────────────────
   const WEBHOOK_URL     = "https://n8n-n8n.78zv0v.easypanel.host/webhook/asistencia";
   const WEBHOOK_PIN_URL = "https://n8n-n8n.78zv0v.easypanel.host/webhook/Validar-ID";
-  
-  // Genera o recupera el device_id único de este celular
-function getDeviceId() {
-  let id = localStorage.getItem('device_id');
-  if (!id) {
-    id = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem('device_id', id);
-  }
-  return id;
-}
-const DEVICE_ID = getDeviceId();
 
-  // ─── ESTADO ──────────────────────────────────────────────────────
+  function getDeviceId() {
+    try {
+      let id = localStorage.getItem('device_id');
+      if (!id) {
+        id = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('device_id', id);
+      }
+      return id;
+    } catch(e) {
+      const match = document.cookie.match(/device_id=([^;]+)/);
+      if (match) return match[1];
+      const id = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      document.cookie = 'device_id=' + id + '; max-age=31536000; path=/; SameSite=Strict';
+      return id;
+    }
+  }
+  const DEVICE_ID = getDeviceId();
+
   let pinActual = "";
   let datosUbicacion = null;
   let datosEmpleado = null;
 
-  // ─── FECHA ───────────────────────────────────────────────────────
   document.getElementById('fecha-actual').textContent =
     new Date().toLocaleDateString('es-MX', { weekday:'long', day:'numeric', month:'long' });
 
-  // ─── TECLADO PIN ─────────────────────────────────────────────────
   function presionar(num) {
     if (pinActual.length >= 4) return;
     pinActual += num;
@@ -196,7 +194,6 @@ const DEVICE_ID = getDeviceId();
     }
   }
 
-  // ─── VALIDAR PIN ─────────────────────────────────────────────────
   async function validarPIN() {
     document.getElementById('pin-error').textContent = "Verificando...";
     try {
@@ -204,27 +201,28 @@ const DEVICE_ID = getDeviceId();
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pin: pinActual, device_id: DEVICE_ID })
-        
       });
       const raw = await res.json();
       const data = Array.isArray(raw) ? raw[0] : raw;
-
-      // Acepta campos en minúscula o con mayúscula inicial (según N8N)
       const valido = data.valido || data.Valido || false;
 
       if (valido) {
-        // Normaliza todos los campos sin importar mayúsculas/minúsculas
         datosEmpleado = {
           valido: true,
-          id:               data.id               || data.ID               || '',
-          nombre:           data.nombre           || data.Nombre           || data['NOMBRE COMPLETO'] || '',
-          puesto:           data.puesto           || data.Puesto           || data.PUESTO            || '',
-          sucursal_asignada:data.sucursal_asignada|| data.Sucursal         || data.SUCURSAL          || '',
-          ultimo_registro:  data.ultimo_registro  || data['Ultimo Registro']|| data['ULTIMO REGISTRO']|| ''
+          id:                data.id                || data.ID                || '',
+          nombre:            data.nombre            || data.Nombre            || data['NOMBRE COMPLETO'] || '',
+          puesto:            data.puesto            || data.Puesto            || data.PUESTO             || '',
+          sucursal_asignada: data.sucursal_asignada || data.Sucursal          || data.SUCURSAL           || '',
+          ultimo_registro:   data.ultimo_registro   || data['Ultimo Registro'] || data['ULTIMO REGISTRO'] || ''
         };
         mostrarPerfil(datosEmpleado);
       } else {
-        document.getElementById('pin-error').textContent = "PIN incorrecto. Intenta de nuevo.";
+        const motivo = data.motivo || '';
+        if (motivo === 'dispositivo_no_autorizado') {
+          document.getElementById('pin-error').textContent = "⚠️ Este PIN no está autorizado en este dispositivo.";
+        } else {
+          document.getElementById('pin-error').textContent = "PIN incorrecto. Intenta de nuevo.";
+        }
         pinActual = "";
         actualizarDots();
       }
@@ -235,12 +233,10 @@ const DEVICE_ID = getDeviceId();
     }
   }
 
-  // ─── MOSTRAR PERFIL ───────────────────────────────────────────────
   function mostrarPerfil(emp) {
     document.getElementById('pin-section').style.display = 'none';
     document.getElementById('perfil-section').style.display = 'block';
 
-    // Avatar con iniciales
     const iniciales = emp.nombre
       ? emp.nombre.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()
       : '?';
@@ -249,14 +245,12 @@ const DEVICE_ID = getDeviceId();
     document.getElementById('puesto-txt').textContent =
       emp.puesto + (emp.sucursal_asignada ? ' · ' + emp.sucursal_asignada : '');
 
-    // Tipo de registro
     const tipo = detectarTipoRegistro(emp.ultimo_registro);
     const badge = document.getElementById('tipo-badge');
     badge.textContent = tipoTexto(tipo);
     badge.className = 'tipo-badge badge-' + tipo;
     badge.dataset.tipo = tipo;
 
-    // GPS
     navigator.geolocation.getCurrentPosition(
       pos => {
         datosUbicacion = {
@@ -277,7 +271,6 @@ const DEVICE_ID = getDeviceId();
     );
   }
 
-  // ─── TIPO DE REGISTRO ─────────────────────────────────────────────
   function detectarTipoRegistro(ultimoRegistro) {
     const orden = ['entrada', 'salida_comida', 'regreso_comida', 'salida'];
     if (!ultimoRegistro) return 'entrada';
@@ -294,7 +287,6 @@ const DEVICE_ID = getDeviceId();
     }[tipo] || tipo;
   }
 
-  // ─── CONFIRMAR REGISTRO ───────────────────────────────────────────
   async function confirmarRegistro() {
     const btn = document.getElementById('btn-confirmar');
     btn.disabled = true;
@@ -307,14 +299,14 @@ const DEVICE_ID = getDeviceId();
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          nombre:       datosEmpleado.nombre,
-          empleado_id:  datosEmpleado.id,
-          tipo:         tipo,
-          lat:          datosUbicacion.lat,
-          lon:          datosUbicacion.lon,
-          precision_gps:datosUbicacion.precision,
-          timestamp:    new Date().toISOString()
-          device_id:    DEVICE_ID
+          nombre:        datosEmpleado.nombre,
+          empleado_id:   datosEmpleado.id,
+          tipo:          tipo,
+          lat:           datosUbicacion.lat,
+          lon:           datosUbicacion.lon,
+          precision_gps: datosUbicacion.precision,
+          timestamp:     new Date().toISOString(),
+          device_id:     DEVICE_ID
         })
       });
       const data = await res.json();
@@ -326,7 +318,6 @@ const DEVICE_ID = getDeviceId();
     }
   }
 
-  // ─── ÉXITO ────────────────────────────────────────────────────────
   function mostrarExito(msg, hora) {
     document.getElementById('perfil-section').style.display = 'none';
     document.getElementById('success-section').style.display = 'block';
@@ -335,7 +326,6 @@ const DEVICE_ID = getDeviceId();
     setTimeout(resetear, 5000);
   }
 
-  // ─── RESETEAR ─────────────────────────────────────────────────────
   function resetear() {
     pinActual = "";
     datosUbicacion = null;
