@@ -151,6 +151,17 @@
   // ─── CONFIGURACIÓN ── cambia solo estas 2 URLs ───────────────────
   const WEBHOOK_URL     = "https://n8n-n8n.78zv0v.easypanel.host/webhook/asistencia";
   const WEBHOOK_PIN_URL = "https://n8n-n8n.78zv0v.easypanel.host/webhook/Validar-ID";
+  
+  // Genera o recupera el device_id único de este celular
+function getDeviceId() {
+  let id = localStorage.getItem('device_id');
+  if (!id) {
+    id = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('device_id', id);
+  }
+  return id;
+}
+const DEVICE_ID = getDeviceId();
 
   // ─── ESTADO ──────────────────────────────────────────────────────
   let pinActual = "";
@@ -192,7 +203,8 @@
       const res = await fetch(WEBHOOK_PIN_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin: pinActual })
+        body: JSON.stringify({ pin: pinActual, device_id: DEVICE_ID })
+        
       });
       const raw = await res.json();
       const data = Array.isArray(raw) ? raw[0] : raw;
@@ -302,6 +314,7 @@
           lon:          datosUbicacion.lon,
           precision_gps:datosUbicacion.precision,
           timestamp:    new Date().toISOString()
+          device_id:    DEVICE_ID
         })
       });
       const data = await res.json();
